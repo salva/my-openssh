@@ -1830,6 +1830,61 @@ session_env_req(Session *s)
 	return (0);
 }
 
+/*
+ * For conversion of signals to/from ssh channel request names.
+ * List of signals from RFC 4254 section 6.10.
+ */
+
+static int
+name2sig(char *name)
+{
+#define SSH_SIG(x) if (strcmp(name, #x) == 0) return SIG ## x
+	SSH_SIG(ABRT);
+	SSH_SIG(ALRM);
+	SSH_SIG(FPE);
+	SSH_SIG(HUP);
+	SSH_SIG(ILL);
+	SSH_SIG(INT);
+	SSH_SIG(KILL);
+	SSH_SIG(PIPE);
+	SSH_SIG(QUIT);
+	SSH_SIG(SEGV);
+	SSH_SIG(TERM);
+	SSH_SIG(USR1);
+	SSH_SIG(USR2);
+#undef	SSH_SIG
+	return -1;
+}
+
+static int
+session_signal_req(Session *s)
+{
+	char *signame;
+	int sig, success = 0;
+
+	signame = packet_get_string(NULL);
+	sig = name2sig(signame);
+	packet_check_eom();
+
+	if (sig >= 0) {
+		if (s->pid > 0) {
+			debug("session_signal_req: signal %s, killpg(%d, %d)",
+			    signame, s->pid, sig);
+			temporarily_use_uid(s->pw);
+			if (killpg(s->pid, sig) < 0)
+				error("session_signal_req: killpg(%d, %d): %s",
+				    s->pid, sig, strerror(errno));
+			else
+				success = 1;
+			restore_uid();
+		}
+	} else
+		debug("session_signal_req: unknown signal %s", signame);
+
+	xfree(signame);
+	return success;
+}
+
 static int
 session_auth_agent_req(Session *s)
 {
@@ -1885,6 +1940,8 @@ session_input_channel_req(Channel *c, const char *rtype)
 		success = session_window_change_req(s);
 	} else if (strcmp(rtype, "break") == 0) {
 		success = session_break_req(s);
+	} else if (strcmp(rtype, "signal") == 0) {
+		success = session_signal_req(s);
 	}
 
 	return success;

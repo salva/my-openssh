@@ -908,6 +908,11 @@ option.
 .It Cm ~R
 Request rekeying of the connection
 (only useful for SSH protocol version 2 and if the peer supports it).
+.It Cm ~S
+Send a signal to the remote system
+(only useful for SSH protocol version 2 and if the peer supports it).
+The standard signals are ABRT ALRM FPE HUP ILL INT KILL PIPE QUIT SEGV TERM
+USR1 USR2 but other signals can be sent if the server supports them.
 .El
 .Sh TCP FORWARDING
 Forwarding of arbitrary TCP connections over the secure channel can
