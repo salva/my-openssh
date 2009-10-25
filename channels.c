@@ -317,6 +317,7 @@ channel_new(char *ctype, int type, int rfd, int wfd, int efd,
 	c->output_filter = NULL;
 	c->filter_ctx = NULL;
 	c->filter_cleanup = NULL;
+	c->tag = NULL;
 	TAILQ_INIT(&c->status_confirms);
 	debug("channel %d: new [%s]", found, remote_name);
 	return c;
@@ -401,6 +402,10 @@ channel_free(Channel *c)
 	if (c->path) {
 		xfree(c->path);
 		c->path = NULL;
+	}
+	if (c->tag) {
+	    xfree(c->tag);
+	    c->tag = NULL;
 	}
 	while ((cc = TAILQ_FIRST(&c->status_confirms)) != NULL) {
 		if (cc->abandon_cb != NULL)

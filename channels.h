@@ -137,6 +137,9 @@ struct Channel {
 
 	/* non-blocking connect */
 	struct channel_connect	connect_ctx;
+
+	/* friendly name */
+	char *tag;
 };
 
 #define CHAN_EXTENDED_IGNORE		0

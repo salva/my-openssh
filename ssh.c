@@ -1157,6 +1157,7 @@ ssh_session2_open(void)
 	    "session", SSH_CHANNEL_OPENING, in, out, err,
 	    window, packetmax, CHAN_EXTENDED_WRITE,
 	    "client-session", /*nonblock*/0);
+	xasprintf(&c->tag, "%ld", (long)getpid());
 
 	debug3("ssh_session2_open: channel_new: %d", c->self);
 
