@@ -683,7 +683,7 @@ main(int ac, char **av)
 	if (muxclient_command != 0 && options.control_path == NULL)
 		fatal("No ControlPath specified for \"-O\" command");
 	if (options.control_path != NULL)
-	    muxclient(options.control_path, ac, av);
+		muxclient(options.control_path, ac, av);
 
 	timeout_ms = options.connection_timeout * 1000;
 
