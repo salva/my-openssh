@@ -184,6 +184,20 @@ channel_by_id(int id)
 	return c;
 }
 
+/* Iterate over channels
+ * Use as: for (c = NULL; c = next_channel(c); ) ...
+ */
+Channel *
+channel_next(Channel *current)
+{
+	int id = (current ? current->self + 1 : 0);
+	for (; id < channels_alloc; id++) {
+		Channel *c = channels[id];
+		if (c) return c;
+	}
+	return NULL;
+}
+
 /*
  * Returns the channel if it is allowed to receive protocol messages.
  * Private channels, like listening sockets, may not receive messages.

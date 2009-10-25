@@ -186,6 +186,7 @@ struct Channel {
 /* channel management */
 
 Channel	*channel_by_id(int);
+Channel *channel_next(Channel *);
 Channel	*channel_lookup(int);
 Channel *channel_new(char *, int, int, int, int, u_int, u_int, int, char *, int);
 void	 channel_set_fds(int, int, int, int, int, int, int, u_int);
