@@ -63,6 +63,7 @@ void	 client_register_global_confirm(global_confirm_cb *, void *);
 #define SSHMUX_COMMAND_ALIVE_CHECK	2	/* Check master is alive */
 #define SSHMUX_COMMAND_TERMINATE	3	/* Ask master to exit */
 #define SSHMUX_COMMAND_PS               4       /* Get list of slaves */
+#define SSHMUX_COMMAND_KILL             5       /* Send signal to remote process */
 
 #define SSHMUX_FLAG_TTY			(1)	/* Request tty on open */
 #define SSHMUX_FLAG_SUBSYS		(1<<1)	/* Subsystem request on open */

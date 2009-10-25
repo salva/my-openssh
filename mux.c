@@ -67,6 +67,7 @@
 #include "sshpty.h"
 #include "key.h"
 #include "readconf.h"
+#include "compat.h"
 #include "clientloop.h"
 
 /* from ssh.c */
@@ -212,7 +213,7 @@ muxserver_accept_control(void)
 	socklen_t addrlen;
 	struct sockaddr_storage addr;
 	struct mux_session_confirm_ctx *cctx;
-	char *cmd, *tag;
+	char *cmd, *tag, *signal;
 	u_int i, j, len, env_len, mux_command, flags, escape_char;
 	uid_t euid;
 	gid_t egid;
@@ -278,6 +279,25 @@ muxserver_accept_control(void)
 			allowed = ask_permission("Terminate shared connection "
 						 "to %s? ", host);
 		break;
+	case  SSHMUX_COMMAND_KILL:
+		signal = buffer_get_string(&m, &len);
+		tag = buffer_get_string(&m, &len);
+		c = NULL;
+		if (tag && signal && compat20) {
+			/* channel lookup by tag */
+			while (c = channel_next(c))
+				if (c->tag && (strcmp(tag, c->tag) == 0))
+					break;
+		}
+		if (c) {
+			if (ask)
+				allowed = ask_permission("Send signal %s to "
+							 "session %s in %s? ",
+							 signal, tag, host);
+		} else {
+			allowed = 0;
+		}
+		break;
 	}
 
 	/* Build response */
@@ -304,6 +324,14 @@ muxserver_accept_control(void)
 		while (c = channel_next(c))
 			if (c->tag)
 				buffer_put_cstring(&m, c->tag);
+		break;
+	case SSHMUX_COMMAND_KILL:
+		if (allowed) {
+			int id = c->self;
+			channel_request_start(id, "signal", 0);
+			packet_put_cstring(signal);
+			packet_send();
+ 		}
 		break;
 	default:
 		error("Unsupported command %d", mux_command);
@@ -513,6 +541,10 @@ muxclient(const char *path, int ac, char **av)
 		muxclient_command = SSHMUX_COMMAND_OPEN;
 	case SSHMUX_COMMAND_OPEN:
 		break;
+	case  SSHMUX_COMMAND_KILL:
+		if (ac != 2)
+			fatal("Bad number of arguments for control command kill");
+		break;
 	default:
 		if (ac != 0)
 			fatal("Bad number of arguments for control command");
@@ -587,6 +619,10 @@ muxclient(const char *path, int ac, char **av)
 
 	/* Add command specific data */
 	switch (muxclient_command) {
+	case SSHMUX_COMMAND_KILL:
+		buffer_put_cstring(&m, av[0]);
+		buffer_put_cstring(&m, av[1]);
+		break;	
 	default:
 		break;
 	}
@@ -645,9 +681,12 @@ muxclient(const char *path, int ac, char **av)
 				error("%s: bad server reply", __func__);
 				goto muxerr;
 			}
-			printf("%s\n", tag);
+			printf("%s\r\n", tag);
 			xfree(tag);
 		}
+		exit(0);
+	case SSHMUX_COMMAND_KILL:
+		fprintf(stderr, "Signal request sent.\r\n");
 		exit(0);
 	case SSHMUX_COMMAND_OPEN:
 		buffer_clear(&m);
