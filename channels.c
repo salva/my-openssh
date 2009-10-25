@@ -418,8 +418,8 @@ channel_free(Channel *c)
 		c->path = NULL;
 	}
 	if (c->tag) {
-	    xfree(c->tag);
-	    c->tag = NULL;
+		xfree(c->tag);
+		c->tag = NULL;
 	}
 	while ((cc = TAILQ_FIRST(&c->status_confirms)) != NULL) {
 		if (cc->abandon_cb != NULL)
