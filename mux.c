@@ -208,11 +208,11 @@ muxserver_accept_control(void)
 {
 	Buffer m;
 	Channel *c;
-	int client_fd, new_fd[3], ver, allowed, window, packetmax, ask;
+	int client_fd, new_fd[3], ver, allowed, window, packetmax, ask, count;
 	socklen_t addrlen;
 	struct sockaddr_storage addr;
 	struct mux_session_confirm_ctx *cctx;
-	char *cmd;
+	char *cmd, *tag;
 	u_int i, j, len, env_len, mux_command, flags, escape_char;
 	uid_t euid;
 	gid_t egid;
@@ -293,6 +293,18 @@ muxserver_accept_control(void)
 		if (allowed)
  			start_close = 1;
 		break;
+
+	case SSHMUX_COMMAND_PS:
+		count = 0;
+		c = NULL;
+		while (c = channel_next(c))
+			if (c->tag)
+				count ++;
+		buffer_put_int(&m, count);
+		while (c = channel_next(c))
+			if (c->tag)
+				buffer_put_cstring(&m, c->tag);
+		break;
 	default:
 		error("Unsupported command %d", mux_command);
 		goto cleanup;
@@ -335,6 +347,7 @@ muxserver_accept_control(void)
 	cctx->want_agent_fwd = (flags & SSHMUX_FLAG_AGENT_FWD) != 0;
 	cctx->term = buffer_get_string(&m, &len);
 	escape_char = buffer_get_int(&m);
+	tag = buffer_get_string(&m, &len);
 
 	cmd = buffer_get_string(&m, &len);
 	buffer_init(&cctx->cmd);
@@ -369,6 +382,7 @@ muxserver_accept_control(void)
 			buffer_free(&cctx->cmd);
 			close(client_fd);
 			xfree(cctx);
+			xfree(tag);
 			return 0;
 		}
 	}
@@ -395,6 +409,8 @@ muxserver_accept_control(void)
 				xfree(cctx->env[i]);
 			xfree(cctx->env);
 		}
+		xfree(cctx);
+		xfree(tag);
 		return 0;
 	}
 	buffer_free(&m);
@@ -421,6 +437,7 @@ muxserver_accept_control(void)
 	    CHAN_EXTENDED_WRITE, "client-session", /*nonblock*/0);
 
 	c->ctl_fd = client_fd;
+	c->tag = tag;
 	if (cctx->want_tty && escape_char != 0xffffffff) {
 		channel_register_filter(c->self,
 		    client_simple_escape_filter, NULL,
@@ -484,9 +501,9 @@ void
 muxclient(const char *path, int ac, char **av)
 {
 	struct sockaddr_un addr;
-	int i, r, fd, sock, exitval[2], num_env;
+	int i, r, fd, sock, exitval[2], num_env, count, len;
 	Buffer m;
-	char *term;
+	char *term, *tag = NULL;
 	extern char **environ;
 	u_int allowed, flags;
 
@@ -617,6 +634,21 @@ muxclient(const char *path, int ac, char **av)
 	case SSHMUX_COMMAND_TERMINATE:
 		fprintf(stderr, "Exit request sent.\r\n");
 		exit(0);
+	case SSHMUX_COMMAND_PS:
+		if (buffer_get_int_ret(&count, &m) != 0) {
+			error("%s: bad server reply", __func__);
+			goto muxerr;
+		}
+		for (i = 0; i < count; i++) {
+			tag = buffer_get_string(&m, &len);
+			if (!tag) {
+				error("%s: bad server reply", __func__);
+				goto muxerr;
+			}
+			printf("%s\n", tag);
+			xfree(tag);
+		}
+		exit(0);
 	case SSHMUX_COMMAND_OPEN:
 		buffer_clear(&m);
 		buffer_put_cstring(&m, term ? term : "");
@@ -624,6 +656,8 @@ muxclient(const char *path, int ac, char **av)
 			buffer_put_int(&m, 0xffffffff);
 		else
 			buffer_put_int(&m, options.escape_char);
+		xasprintf(&tag, "%ld", (long)getpid());
+		buffer_put_cstring(&m, tag);
 		buffer_append(&command, "\0", 1);
 		buffer_put_cstring(&m, buffer_ptr(&command));
 

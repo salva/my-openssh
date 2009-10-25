@@ -305,6 +305,8 @@ main(int ac, char **av)
 				muxclient_command = SSHMUX_COMMAND_ALIVE_CHECK;
 			else if (strcmp(optarg, "exit") == 0)
 				muxclient_command = SSHMUX_COMMAND_TERMINATE;
+			else if (strcmp(optarg, "ps") == 0)
+				muxclient_command = SSHMUX_COMMAND_PS;
 			else
 				fatal("Invalid multiplex command.");
 			break;
