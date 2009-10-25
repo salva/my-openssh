@@ -56,7 +56,7 @@ typedef void global_confirm_cb(int, u_int32_t seq, void *);
 void	 client_register_global_confirm(global_confirm_cb *, void *);
 
 /* Multiplexing protocol version */
-#define SSHMUX_VER			2
+#define SSHMUX_VER			3
 
 /* Multiplexing control protocol flags */
 #define SSHMUX_COMMAND_OPEN		1	/* Open new connection */
