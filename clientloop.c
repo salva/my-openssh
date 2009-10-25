@@ -877,6 +877,28 @@ out:
 		xfree(fwd.connect_host);
 }
 
+static void
+process_signal(void)
+{
+	void (*handler)(int);
+	char *sig;
+
+	leave_raw_mode();
+	handler = signal(SIGINT, SIG_IGN);
+	sig = read_passphrase("SIG", RP_ECHO);
+	if (sig != NULL && *sig != '\0') {
+		debug("sending signal %s to session %d", sig, session_ident);
+		channel_request_start(session_ident, "signal", 0);
+		packet_put_cstring(sig);
+		packet_send();
+		packet_write_wait();
+	}
+	if (sig != NULL)
+		xfree(sig);
+	signal(SIGINT, handler);
+	enter_raw_mode();
+}
+
 /* 
  * Process the characters one by one, call with c==NULL for proto1 case.
  */
@@ -1053,6 +1075,7 @@ Supported escape sequences:\r\n\
   %cB  - send a BREAK to the remote system\r\n\
   %cC  - open a command line\r\n\
   %cR  - Request rekey (SSH protocol 2 only)\r\n\
+  %cS  - Send a signal (SSH protocol 2 only)\r\n\
   %c^Z - suspend ssh\r\n\
   %c#  - list forwarded connections\r\n\
   %c&  - background ssh (when waiting for connections to terminate)\r\n\
@@ -1064,7 +1087,7 @@ Supported escape sequences:\r\n\
 					    escape_char, escape_char,
 					    escape_char, escape_char,
 					    escape_char, escape_char,
-					    escape_char);
+					    escape_char, escape_char);
 				}
 				buffer_append(berr, string, strlen(string));
 				continue;
@@ -1076,6 +1099,11 @@ Supported escape sequences:\r\n\
 				s = channel_open_message();
 				buffer_append(berr, s, strlen(s));
 				xfree(s);
+				continue;
+
+			case 'S':
+				if (compat20)
+					process_signal();
 				continue;
 
 			case 'C':
