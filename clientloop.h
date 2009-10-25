@@ -70,4 +70,4 @@ void	 client_register_global_confirm(global_confirm_cb *, void *);
 
 void	muxserver_listen(void);
 int	muxserver_accept_control(void);
-void	muxclient(const char *);
+void	muxclient(const char *, int, char **);

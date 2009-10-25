@@ -208,7 +208,7 @@ muxserver_accept_control(void)
 {
 	Buffer m;
 	Channel *c;
-	int client_fd, new_fd[3], ver, allowed, window, packetmax;
+	int client_fd, new_fd[3], ver, allowed, window, packetmax, ask;
 	socklen_t addrlen;
 	struct sockaddr_storage addr;
 	struct mux_session_confirm_ctx *cctx;
@@ -259,67 +259,61 @@ muxserver_accept_control(void)
 		return 0;
 	}
 
-	allowed = 1;
 	mux_command = buffer_get_int(&m);
 	flags = buffer_get_int(&m);
 
-	buffer_clear(&m);
+	/* Process extra arguments and ask user for permission */
+	allowed = 1;
+	ask = (options.control_master == SSHCTL_MASTER_ASK ||
+	       options.control_master == SSHCTL_MASTER_AUTO_ASK);
 
 	switch (mux_command) {
 	case SSHMUX_COMMAND_OPEN:
-		if (options.control_master == SSHCTL_MASTER_ASK ||
-		    options.control_master == SSHCTL_MASTER_AUTO_ASK)
+		if (ask)
 			allowed = ask_permission("Allow shared connection "
-			    "to %s? ", host);
-		/* continue below */
+						 "to %s? ", host);
 		break;
 	case SSHMUX_COMMAND_TERMINATE:
-		if (options.control_master == SSHCTL_MASTER_ASK ||
-		    options.control_master == SSHCTL_MASTER_AUTO_ASK)
+		if (ask)
 			allowed = ask_permission("Terminate shared connection "
-			    "to %s? ", host);
-		if (allowed)
-			start_close = 1;
-		/* FALLTHROUGH */
-	case SSHMUX_COMMAND_ALIVE_CHECK:
-		/* Reply for SSHMUX_COMMAND_TERMINATE and ALIVE_CHECK */
-		buffer_clear(&m);
-		buffer_put_int(&m, allowed);
-		buffer_put_int(&m, getpid());
-		if (ssh_msg_send(client_fd, SSHMUX_VER, &m) == -1) {
-			error("%s: client msg_send failed", __func__);
-			close(client_fd);
-			buffer_free(&m);
-			return start_close;
-		}
-		buffer_free(&m);
-		close(client_fd);
-		return start_close;
-	default:
-		error("Unsupported command %d", mux_command);
-		buffer_free(&m);
-		close(client_fd);
-		return 0;
+						 "to %s? ", host);
+		break;
 	}
 
-	/* Reply for SSHMUX_COMMAND_OPEN */
+	/* Build response */
 	buffer_clear(&m);
 	buffer_put_int(&m, allowed);
 	buffer_put_int(&m, getpid());
+
+	switch (mux_command) {
+	case SSHMUX_COMMAND_OPEN:
+	case SSHMUX_COMMAND_ALIVE_CHECK:
+		break;
+	case SSHMUX_COMMAND_TERMINATE:
+		if (allowed)
+ 			start_close = 1;
+		break;
+	default:
+		error("Unsupported command %d", mux_command);
+		goto cleanup;
+ 	}
+	if (!allowed)
+		error("Refused control connection");
+
+	/* Send response */
 	if (ssh_msg_send(client_fd, SSHMUX_VER, &m) == -1) {
 		error("%s: client msg_send failed", __func__);
-		close(client_fd);
-		buffer_free(&m);
-		return 0;
+		goto cleanup;
 	}
 
-	if (!allowed) {
-		error("Refused control connection");
+	if ((mux_command != SSHMUX_COMMAND_OPEN) || !allowed) {
+	cleanup:
+ 		buffer_free(&m);
 		close(client_fd);
-		buffer_free(&m);
-		return 0;
-	}
-
+		return start_close;
+ 	}
+ 
+	/* Continue SSHMUX_COMMAND_OPEN processing */
 	buffer_clear(&m);
 	if (ssh_msg_recv(client_fd, &m) == -1) {
 		error("%s: client msg_recv failed", __func__);
@@ -487,7 +481,7 @@ env_permitted(char *env)
 
 /* Multiplex client main loop. */
 void
-muxclient(const char *path)
+muxclient(const char *path, int ac, char **av)
 {
 	struct sockaddr_un addr;
 	int i, r, fd, sock, exitval[2], num_env;
@@ -496,8 +490,16 @@ muxclient(const char *path)
 	extern char **environ;
 	u_int allowed, flags;
 
-	if (muxclient_command == 0)
+	/* check arguments */
+	switch (muxclient_command) {
+	case 0:
 		muxclient_command = SSHMUX_COMMAND_OPEN;
+	case SSHMUX_COMMAND_OPEN:
+		break;
+	default:
+		if (ac != 0)
+			fatal("Bad number of arguments for control command");
+	}
 
 	switch (options.control_master) {
 	case SSHCTL_MASTER_AUTO:
@@ -562,9 +564,17 @@ muxclient(const char *path)
 
 	buffer_init(&m);
 
-	/* Send our command to server */
+	/* Build command header */
 	buffer_put_int(&m, muxclient_command);
 	buffer_put_int(&m, flags);
+
+	/* Add command specific data */
+	switch (muxclient_command) {
+	default:
+		break;
+	}
+	
+	/* Send our command to server */
 	if (ssh_msg_send(sock, SSHMUX_VER, &m) == -1) {
 		error("%s: msg_send", __func__);
  muxerr:
@@ -599,8 +609,6 @@ muxclient(const char *path)
 	}
 	muxserver_pid = buffer_get_int(&m);
 
-	buffer_clear(&m);
-
 	switch (muxclient_command) {
 	case SSHMUX_COMMAND_ALIVE_CHECK:
 		fprintf(stderr, "Master running (pid=%d)\r\n",
@@ -610,6 +618,7 @@ muxclient(const char *path)
 		fprintf(stderr, "Exit request sent.\r\n");
 		exit(0);
 	case SSHMUX_COMMAND_OPEN:
+		buffer_clear(&m);
 		buffer_put_cstring(&m, term ? term : "");
 		if (options.escape_char == SSH_ESCAPECHAR_NONE)
 			buffer_put_int(&m, 0xffffffff);

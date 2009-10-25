@@ -188,7 +188,7 @@ static int ssh_session2(void);
 static void load_public_identity_files(void);
 
 /* from muxclient.c */
-void muxclient(const char *);
+void muxclient(const char *, int ac, char **av);
 void muxserver_listen(void);
 
 /*
@@ -683,7 +683,7 @@ main(int ac, char **av)
 	if (muxclient_command != 0 && options.control_path == NULL)
 		fatal("No ControlPath specified for \"-O\" command");
 	if (options.control_path != NULL)
-		muxclient(options.control_path);
+	    muxclient(options.control_path, ac, av);
 
 	timeout_ms = options.connection_timeout * 1000;
 
