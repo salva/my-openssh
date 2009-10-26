@@ -681,7 +681,7 @@ muxclient(const char *path, int ac, char **av)
 				error("%s: bad server reply", __func__);
 				goto muxerr;
 			}
-			printf("%s\r\n", tag);
+			printf("%s\n", tag);
 			xfree(tag);
 		}
 		exit(0);
