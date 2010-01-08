@@ -32,7 +32,9 @@
 #include <time.h>
 #include <unistd.h>
 #include <stdarg.h>
-
+#include <locale.h>
+#include <nl_types.h>
+#include <langinfo.h>
 #include "xmalloc.h"
 #include "buffer.h"
 #include "log.h"
@@ -1323,7 +1325,7 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 
 	log_init(__progname, log_level, log_facility, log_stderr);
 	
-	while (!skipargs && (ch = getopt(argc, argv, "f:l:u:ches:")) != -1) {
+	while (!skipargs && (ch = getopt(argc, argv, "f:l:u:ches:S")) != -1) {
 		switch (ch) {
 		case 'c':
 			/*
@@ -1354,6 +1356,15 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 			break;
 		case 's':
 		        filename_charset = xstrdup(optarg);
+			break;
+		case 'S':
+			setlocale(LC_CTYPE, "");
+			filename_charset = nl_langinfo(CODESET);
+			setlocale(LC_CTYPE, "C");
+			if ((strcmp(filename_charset, "646") == 0) ||
+			    (strcmp(filename_charset, "ANSI_X3.4-1968") == 0))
+				filename_charset = "ISO-8859-1";
+			filename_charset = xstrdup(filename_charset);
 			break;
 		case 'h':
 		default:
