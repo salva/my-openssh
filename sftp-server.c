@@ -61,7 +61,7 @@ Buffer oqueue;
 /* Version of client */
 int version;
 
-/* File system charset encoding */
+/* File system charset */
 char *charset = NULL;
 
 /* portable attributes, etc. */
@@ -526,7 +526,7 @@ process_init(void)
 	/* fstatvfs extension */
 	buffer_put_cstring(&msg, "fstatvfs@openssh.com");
 	buffer_put_cstring(&msg, "2"); /* version */
-	/* charset encoding extension */ 
+	/* filename charset extension */ 
 	if (charset) {
 		buffer_put_cstring(&msg, "filename-charset@openssh.com");
 		buffer_put_cstring(&msg, charset);
