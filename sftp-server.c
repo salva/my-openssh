@@ -61,8 +61,8 @@ Buffer oqueue;
 /* Version of client */
 int version;
 
-/* File system charset */
-char *charset = NULL;
+/* Charset used to encode names on the file system */
+char *filename_charset = NULL;
 
 /* portable attributes, etc. */
 
@@ -527,9 +527,9 @@ process_init(void)
 	buffer_put_cstring(&msg, "fstatvfs@openssh.com");
 	buffer_put_cstring(&msg, "2"); /* version */
 	/* filename charset extension */ 
-	if (charset) {
+	if (filename_charset) {
 		buffer_put_cstring(&msg, "filename-charset@openssh.com");
-		buffer_put_cstring(&msg, charset);
+		buffer_put_cstring(&msg, filename_charset);
 	}
 	send_msg(&msg);
 	buffer_free(&msg);
@@ -1353,7 +1353,7 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 			(void)umask(mask);
 			break;
 		case 's':
-		        charset = xstrdup(optarg);
+		        filename_charset = xstrdup(optarg);
 			break;
 		case 'h':
 		default:
