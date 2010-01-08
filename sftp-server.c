@@ -61,6 +61,9 @@ Buffer oqueue;
 /* Version of client */
 int version;
 
+/* File system charset encoding */
+char *charset = NULL;
+
 /* portable attributes, etc. */
 
 typedef struct Stat Stat;
@@ -523,6 +526,11 @@ process_init(void)
 	/* fstatvfs extension */
 	buffer_put_cstring(&msg, "fstatvfs@openssh.com");
 	buffer_put_cstring(&msg, "2"); /* version */
+	/* charset encoding extension */ 
+	if (charset) {
+		buffer_put_cstring(&msg, "filename-charset@openssh.com");
+		buffer_put_cstring(&msg, charset);
+	}
 	send_msg(&msg);
 	buffer_free(&msg);
 }
@@ -1314,8 +1322,8 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 	extern char *__progname;
 
 	log_init(__progname, log_level, log_facility, log_stderr);
-
-	while (!skipargs && (ch = getopt(argc, argv, "f:l:u:che")) != -1) {
+	
+	while (!skipargs && (ch = getopt(argc, argv, "f:l:u:ches:")) != -1) {
 		switch (ch) {
 		case 'c':
 			/*
@@ -1343,6 +1351,9 @@ sftp_server_main(int argc, char **argv, struct passwd *user_pw)
 				fatal("Invalid umask \"%s\": %s",
 				    optarg, errmsg);
 			(void)umask(mask);
+			break;
+		case 's':
+		        charset = xstrdup(optarg);
 			break;
 		case 'h':
 		default:
