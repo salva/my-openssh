@@ -30,10 +30,11 @@
 .Nd SFTP server subsystem
 .Sh SYNOPSIS
 .Nm sftp-server
-.Op Fl eh
+.Op Fl ehS
 .Op Fl f Ar log_facility
 .Op Fl l Ar log_level
 .Op Fl u Ar umask
+.Op Fl s Ar filename_charset
 .Sh DESCRIPTION
 .Nm
 is a program that speaks the server side of SFTP protocol
@@ -86,6 +87,14 @@ Sets an explicit
 .Xr umask 2
 to be applied to newly-created files and directories, instead of the
 user's default mask.
+.It Fl s Ar filename_charset
+Specifies the charset that is being used to encode filenames on the
+server file system. The client software can use this information to
+convert between the server and local charsets. By default
+.Nm
+tries to autodetect the charset from the locale configuration.
+.It Fl S
+Disables the filename charset extension.
 .El
 .Pp
 For logging to work,
